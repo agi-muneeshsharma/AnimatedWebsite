@@ -8,27 +8,34 @@ import MusicPlayer from './MusicPlayer';
 
 const LandingPage = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scatterValue, setScatterValue] = useState(0);
+  const [scrollValue, setScrollValue] = useState(0);
 
-  // Track scroll specifically for the first section
+  // Track the scroll of the entire page (Section 1 + Section 2)
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start start", "end start"]
+    offset: ["start start", "end end"]
   });
 
-  // Sync scroll to a state we can pass to Three.js
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    setScatterValue(latest);
+    setScrollValue(latest);
   });
 
   return (
-    <main className="relative bg-[#050508] text-white overflow-x-hidden">
-      {/* We use a ref here to track the scroll of this specific 100vh block */}
-      <section ref={containerRef} className="relative w-full h-screen">
-        <NeuralNetworkBackground scatter={scatterValue} />
+    <main ref={containerRef} className="relative bg-[#050508] text-white">
+      
+      {/* PERSISTENT BACKGROUND: Stays fixed so the orb can morph into the galaxy */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <NeuralNetworkBackground scatter={scrollValue} />
+      </div>
+
+      {/* SECTION 1: Intro (Text fades out as you scroll) */}
+      <section className="relative h-screen w-full z-10 pointer-events-none" />
+
+      {/* SECTION 2: Logo and Typewriter (Content scrolls into view) */}
+      <section className="relative h-screen w-full z-10">
+        <LogoSection scatter={scrollValue} />
       </section>
 
-      <LogoSection /> 
       <MusicPlayer />
     </main>
   );

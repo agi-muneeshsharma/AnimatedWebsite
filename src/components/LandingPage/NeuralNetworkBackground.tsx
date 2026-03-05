@@ -4,22 +4,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+interface NeuralNetworkProps {
+  scatter: number;
+}
+
+const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
-  const mouseRef = useRef({ x: 0, y: 0 });
   const [index, setIndex] = useState(0);
   const phrases = ["HELLO", "Welcome to", "Aark Global"];
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % phrases.length);
-    }, 2000);
+    const timer = setInterval(() => setIndex((prev) => (prev + 1) % phrases.length), 2000);
     return () => clearInterval(timer);
   }, []);
 
-  // Update the shader uniform whenever the scatter prop changes
   useEffect(() => {
     if (materialRef.current) {
       materialRef.current.uniforms.uScatter.value = scatter;
@@ -31,23 +30,19 @@ const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.z = 5;
+    camera.position.z = 6;
 
-    const renderer = new THREE.WebGLRenderer({ 
-      canvas: canvasRef.current, 
-      antialias: true, 
-      alpha: true 
-    });
-    
+    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const geometry = new THREE.SphereGeometry(1.2, 80, 110); 
+    const geometry = new THREE.SphereGeometry(1.5, 128, 128); 
+    
     const material = new THREE.ShaderMaterial({
       uniforms: { 
         time: { value: 0 }, 
-        uPointSize: { value: 2.5 },
-        uScatter: { value: 0 } // New uniform for scattering
+        uPointSize: { value: 2.8 },
+        uScatter: { value: 0 } 
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -59,22 +54,25 @@ const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
 
         void main() {
           vec3 pos = position;
+          
+          // 1. SPHERE LOGIC (Start State)
+          float noise = sin(pos.x * 4.0 + time) * 0.1;
+          vec3 spherePos = pos + normal * noise;
 
-          // 1. Organic movement
-          float noise = sin(pos.x * 3.0 + time) * 0.2 + sin(pos.y * 2.0 + time * 0.8) * 0.2;
-          
-          // 2. Scattering logic: move outward along normal based on uScatter
-          // Particles fly out up to 15 units
-          float explosion = uScatter * 15.0;
-          pos += normal * (noise + explosion);
+          // 2. GALAXY SPIRAL LOGIC (End State)
+          // We create a spiral based on the angle of the original points
+          float angle = length(pos.xy) * 12.0 + (pos.x * 8.0) + (time * 0.2);
+          float radius = angle * 0.25;
+          vec3 galaxyPos = vec3(cos(angle) * radius, sin(angle) * radius, pos.z * 0.2);
 
-          vColor = vec3(0.4, 0.6, 1.0) + (normal * 0.3);
-          vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+          // 3. THE MORPH: Linear Interpolation
+          vec3 finalPos = mix(spherePos, galaxyPos, uScatter);
+
+          // Color shifts from Blue to Cyan
+          vColor = mix(vec3(0.4, 0.6, 1.0), vec3(0.2, 0.9, 1.0), uScatter);
           
-          // Make points smaller as they scatter for a distant star effect
-          float sizeFactor = 10.0 / -mvPosition.z;
-          gl_PointSize = uPointSize * (1.0 - uScatter * 0.5) * sizeFactor;
-          
+          vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+          gl_PointSize = uPointSize * (10.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -92,32 +90,18 @@ const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
     const particles = new THREE.Points(geometry, material);
     scene.add(particles);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
-      mouseRef.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
-    };
-    window.addEventListener("mousemove", handleMouseMove);
-
-    let frameId: number;
     const clock = new THREE.Clock();
+    let frameId: number;
     const animate = () => {
-      const elapsed = clock.getElapsedTime();
-      material.uniforms.time.value = elapsed;
-      
-      // Rotate the whole system slowly
-      particles.rotation.y = elapsed * 0.1;
-
-      // Mouse following
-      particles.position.x += (mouseRef.current.x * 0.3 - particles.position.x) * 0.05;
-      particles.position.y += (-mouseRef.current.y * 0.3 - particles.position.y) * 0.05;
-      
+      material.uniforms.time.value = clock.getElapsedTime();
+      // Overall rotation increases slightly as it becomes a galaxy
+      particles.rotation.z += 0.001 + (scatter * 0.005);
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
     animate();
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
       cancelAnimationFrame(frameId);
       geometry.dispose();
       material.dispose();
@@ -126,29 +110,24 @@ const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative w-full h-full bg-[#050508] overflow-hidden">
-      <canvas ref={canvasRef} className="absolute inset-0 z-0 block w-full h-full" />
-      
-      {/* Text Layer fades out as we scatter */}
+    <div className="relative w-full h-full bg-[#050508] overflow-hidden">
+      <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
       <motion.div 
-        style={{ opacity: 1 - scatter }}
+        style={{ opacity: 1 - scatter * 2 }} // Fades out text early in the scroll
         className="relative z-10 w-full h-full flex items-center justify-center pointer-events-none"
       >
         <AnimatePresence mode="wait">
           <motion.h1
             key={index}
-            initial={{ y: 20, opacity: 0, filter: "blur(10px)" }}
-            animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
-            exit={{ y: -20, opacity: 0, filter: "blur(10px)" }}
-            transition={{ duration: 0.5 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
             className="text-[10vw] font-oxanium text-white text-center drop-shadow-[0_0_30px_rgba(99,102,241,0.3)]"
           >
             {phrases[index]}
           </motion.h1>
         </AnimatePresence>
       </motion.div>
-
-      <div className="absolute inset-0 z-[5] pointer-events-none bg-[radial-gradient(circle_at_center,transparent_20%,rgba(5,5,8,0.7)_100%)]" />
     </div>
   );
 };

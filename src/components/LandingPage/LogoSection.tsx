@@ -1,21 +1,22 @@
 "use client";
 import React, { useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, useTransform, useSpring, MotionValue } from "framer-motion";
 import ThreeDLogo from "./ThreeDLogo";
-import StarRippleBackground from "./starripplebackground";
 
-const LogoSection = () => {
-  const sectionRef = useRef<HTMLDivElement>(null);
+interface LogoSectionProps {
+  scatter: number;
+}
 
+const LogoSection: React.FC<LogoSectionProps> = ({ scatter }) => {
   const line1 = "Endless Possibilities Begin";
   const line2 = "With The Right Engineering Partner";
 
+  // UI starts invisible and fades in as the morph reaches 50%
+  const uiOpacity = Math.max(0, (scatter - 0.5) * 2);
+
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.05 },
-    },
+    visible: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.2 } },
   };
 
   const letterVariants = {
@@ -24,50 +25,39 @@ const LogoSection = () => {
   };
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative w-full h-screen bg-[#050508] overflow-hidden"
-    >
-      {/* 1. Add it here! This will be the bottom layer */}
-      <StarRippleBackground />
+    <div className="w-full h-full flex flex-col items-center justify-center px-6 relative z-10">
+      
+      {/* 3D LOGO */}
+      <motion.div 
+        style={{ opacity: uiOpacity, scale: 0.8 + uiOpacity * 0.2 }}
+        className="w-full max-w-xl h-[350px] mb-12 flex items-center justify-center"
+      >
+        <ThreeDLogo className="w-full h-full" />
+      </motion.div>
 
-      {/* 2. Wrap your content in a relative div with a higher z-index */}
-      <div className="relative z-10 w-full h-full flex flex-col items-center justify-center px-6">
-
-        {/* Static 3D Logo */}
-        <div className="w-full max-w-xl h-[350px] mb-8">
-          <ThreeDLogo className="w-full h-full" />
-        </div>
-
-        {/* Typing Text Section */}
-        <div className="text-center">
+      {/* TYPEWRITER TEXT */}
+      <div className="text-center h-24">
+        {scatter > 0.7 && (
           <motion.h1
             className="text-2xl md:text-3xl font-oxanium font-light tracking-widest text-white uppercase"
             variants={containerVariants}
             initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
+            animate="visible"
           >
             {line1.split("").map((char, index) => (
-              <motion.span key={index} variants={letterVariants}>
-                {char}
-              </motion.span>
+              <motion.span key={`l1-${index}`} variants={letterVariants}>{char}</motion.span>
             ))}
-
             <br />
-
             <span className="text-cyan-400 font-normal">
               {line2.split("").map((char, index) => (
-                <motion.span key={index} variants={letterVariants}>
-                  {char}
-                </motion.span>
+                <motion.span key={`l2-${index}`} variants={letterVariants}>{char}</motion.span>
               ))}
             </span>
           </motion.h1>
-        </div>
+        )}
       </div>
-    </section>
+    </div>
   );
 };
 
-export default LogoSection; 
+export default LogoSection;

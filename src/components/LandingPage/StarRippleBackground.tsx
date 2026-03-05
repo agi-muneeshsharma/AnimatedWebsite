@@ -7,7 +7,7 @@ const StarRippleBackground = () => {
     const galaxyStarsCount = 150; // Stars specifically following the galaxy shape
 
     return (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none bg-[#010103]">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none bg-[#050508]">
 
             {/* 1. Deep Space - Static Distant Stars */}
             <div className="absolute inset-0">
@@ -113,3 +113,5 @@ const StarRippleBackground = () => {
 };
 
 export default StarRippleBackground;
+
+// 1
