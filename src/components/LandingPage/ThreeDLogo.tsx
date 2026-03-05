@@ -1,8 +1,7 @@
-"use client";
-
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader";
+import { SVGLoader } from "three/examples/jsm/loaders/SVGLoader.js";
+import "./ThreeDLogo.css";
 
 export default function ThreeDLogo({ className }: { className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -132,8 +131,7 @@ export default function ThreeDLogo({ className }: { className?: string }) {
   return (
     <div
       ref={containerRef}
-      className={className}
-      style={{ width: "100%", height: "100%" }}
+      className={`three-d-logo-container ${className || ""}`}
     />
   );
 }

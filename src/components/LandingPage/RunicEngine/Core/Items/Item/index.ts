@@ -8,10 +8,10 @@ import {
 } from 'three';
 import { TProps } from './types';
 
-import simplexNoise from './shaders/simplexNoise.glsl';
-import rotationShader from './shaders/rotation.glsl';
-import vertexShader from './shaders/vertex.glsl';
-import fragmentShader from './shaders/fragment.glsl';
+import simplexNoise from './shaders/simplexNoise.glsl?raw';
+import rotationShader from './shaders/rotation.glsl?raw';
+import vertexShader from './shaders/vertex.glsl?raw';
+import fragmentShader from './shaders/fragment.glsl?raw';
 
 export class Item {
   private _geometry: PlaneGeometry | SphereGeometry;

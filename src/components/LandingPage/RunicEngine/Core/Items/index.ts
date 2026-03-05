@@ -91,7 +91,6 @@ export class Items {
       const inProgress = clampScope(globalProgress, inScope);
       const outProgress = clampScope(globalProgress, outScope);
 
-      // eslint-disable-next-line no-param-reassign
       item.progress = { in: inProgress, out: outProgress };
 
       item.render();

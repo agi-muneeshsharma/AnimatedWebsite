@@ -39,6 +39,9 @@ export class WebglRenderer {
       canvas: _canvas,
     });
 
+    // Set clear color to transparent to match the dark background
+    this._renderer.setClearColor(0x000000, 0);
+
     this.resize();
   }
 

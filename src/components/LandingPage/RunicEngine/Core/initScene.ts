@@ -39,7 +39,7 @@ loaders.forEach((loader) => {
 
 Promise.all(loaders)
   .then((images) => {
-    // eslint-disable-next-line no-new
+    // Create Items instance (intentional side effect for initialization)
     new Items({ manager, images });
 
     handleLoaded();
