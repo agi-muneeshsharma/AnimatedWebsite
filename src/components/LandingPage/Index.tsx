@@ -2,7 +2,7 @@
 
 import React from 'react';
 import NeuralNetworkBackground from './NeuralNetworkBackground';
-import Hero from './Hero';
+import LogoSection from './LogoSection';
 import MusicPlayer from './MusicPlayer';
 
 const LandingPage = () => {
@@ -12,7 +12,7 @@ const LandingPage = () => {
     <NeuralNetworkBackground />
   </section>
 
-  <Hero /> {/* No div or section wrapper needed if Hero has its own section inside */}
+  <LogoSection /> 
 
   <MusicPlayer />
 </main>
