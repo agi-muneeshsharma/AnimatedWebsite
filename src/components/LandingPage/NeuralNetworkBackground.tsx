@@ -4,9 +4,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const NeuralNetworkBackground = () => {
+const NeuralNetworkBackground = ({ scatter }: { scatter: number }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [index, setIndex] = useState(0);
   const phrases = ["HELLO", "Welcome to", "Aark Global"];
@@ -17,6 +18,13 @@ const NeuralNetworkBackground = () => {
     }, 2000);
     return () => clearInterval(timer);
   }, []);
+
+  // Update the shader uniform whenever the scatter prop changes
+  useEffect(() => {
+    if (materialRef.current) {
+      materialRef.current.uniforms.uScatter.value = scatter;
+    }
+  }, [scatter]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -31,26 +39,42 @@ const NeuralNetworkBackground = () => {
       alpha: true 
     });
     
-    // Ensure renderer matches container size
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     const geometry = new THREE.SphereGeometry(1.2, 80, 110); 
     const material = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 }, uPointSize: { value: 2.5 } },
+      uniforms: { 
+        time: { value: 0 }, 
+        uPointSize: { value: 2.5 },
+        uScatter: { value: 0 } // New uniform for scattering
+      },
       transparent: true,
       blending: THREE.AdditiveBlending,
       vertexShader: `
         uniform float time;
         uniform float uPointSize;
+        uniform float uScatter;
         varying vec3 vColor;
+
         void main() {
           vec3 pos = position;
+
+          // 1. Organic movement
           float noise = sin(pos.x * 3.0 + time) * 0.2 + sin(pos.y * 2.0 + time * 0.8) * 0.2;
-          pos += normal * noise;
+          
+          // 2. Scattering logic: move outward along normal based on uScatter
+          // Particles fly out up to 15 units
+          float explosion = uScatter * 15.0;
+          pos += normal * (noise + explosion);
+
           vColor = vec3(0.4, 0.6, 1.0) + (normal * 0.3);
           vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-          gl_PointSize = uPointSize * (10.0 / -mvPosition.z);
+          
+          // Make points smaller as they scatter for a distant star effect
+          float sizeFactor = 10.0 / -mvPosition.z;
+          gl_PointSize = uPointSize * (1.0 - uScatter * 0.5) * sizeFactor;
+          
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -64,6 +88,7 @@ const NeuralNetworkBackground = () => {
       `
     });
 
+    materialRef.current = material;
     const particles = new THREE.Points(geometry, material);
     scene.add(particles);
 
@@ -78,9 +103,14 @@ const NeuralNetworkBackground = () => {
     const animate = () => {
       const elapsed = clock.getElapsedTime();
       material.uniforms.time.value = elapsed;
+      
+      // Rotate the whole system slowly
       particles.rotation.y = elapsed * 0.1;
+
+      // Mouse following
       particles.position.x += (mouseRef.current.x * 0.3 - particles.position.x) * 0.05;
       particles.position.y += (-mouseRef.current.y * 0.3 - particles.position.y) * 0.05;
+      
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
@@ -96,13 +126,14 @@ const NeuralNetworkBackground = () => {
   }, []);
 
   return (
-    // Height must be h-full to be visible in the section
     <div ref={containerRef} className="relative w-full h-full bg-[#050508] overflow-hidden">
-      {/* Canvas must be absolute so it stays behind the text */}
       <canvas ref={canvasRef} className="absolute inset-0 z-0 block w-full h-full" />
       
-      {/* Text Layer */}
-      <div className="relative z-10 w-full h-full flex items-center justify-center pointer-events-none">
+      {/* Text Layer fades out as we scatter */}
+      <motion.div 
+        style={{ opacity: 1 - scatter }}
+        className="relative z-10 w-full h-full flex items-center justify-center pointer-events-none"
+      >
         <AnimatePresence mode="wait">
           <motion.h1
             key={index}
@@ -110,14 +141,13 @@ const NeuralNetworkBackground = () => {
             animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
             exit={{ y: -20, opacity: 0, filter: "blur(10px)" }}
             transition={{ duration: 0.5 }}
-            className="text-[10vw] text-white text-center drop-shadow-[0_0_30px_rgba(99,102,241,0.3)]"
+            className="text-[10vw] font-oxanium text-white text-center drop-shadow-[0_0_30px_rgba(99,102,241,0.3)]"
           >
             {phrases[index]}
           </motion.h1>
         </AnimatePresence>
-      </div>
+      </motion.div>
 
-      {/* Background vignette */}
       <div className="absolute inset-0 z-[5] pointer-events-none bg-[radial-gradient(circle_at_center,transparent_20%,rgba(5,5,8,0.7)_100%)]" />
     </div>
   );
