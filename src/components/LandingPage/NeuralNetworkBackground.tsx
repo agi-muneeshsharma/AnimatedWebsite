@@ -35,7 +35,7 @@ const NeuralNetworkBackground = () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const geometry = new THREE.SphereGeometry(1.2, 128, 128); 
+    const geometry = new THREE.SphereGeometry(1.2, 80, 110); 
     const material = new THREE.ShaderMaterial({
       uniforms: { time: { value: 0 }, uPointSize: { value: 2.5 } },
       transparent: true,
