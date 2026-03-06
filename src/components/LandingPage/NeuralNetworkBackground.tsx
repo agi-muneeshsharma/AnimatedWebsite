@@ -11,13 +11,14 @@ interface NeuralNetworkProps {
 const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+  const mouseRef = useRef({ x: 0, y: 0 });
   const [index, setIndex] = useState(0);
   const phrases = ["HELLO", "Welcome to", "Aark Global"];
 
   useEffect(() => {
     const timer = setInterval(() => setIndex((prev) => (prev + 1) % phrases.length), 2000);
     return () => clearInterval(timer);
-  }, []);
+  }, [phrases.length]);
 
   useEffect(() => {
     if (materialRef.current) {
@@ -36,13 +37,14 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const geometry = new THREE.SphereGeometry(1.5, 128, 128); 
+    const geometry = new THREE.SphereGeometry(1.5, 80, 40); 
     
     const material = new THREE.ShaderMaterial({
       uniforms: { 
         time: { value: 0 }, 
-        uPointSize: { value: 2.8 },
-        uScatter: { value: 0 } 
+        uPointSize: { value: 2.2 }, 
+        uScatter: { value: 0 },
+        uMouse: { value: new THREE.Vector2(0, 0) }
       },
       transparent: true,
       blending: THREE.AdditiveBlending,
@@ -50,29 +52,40 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
         uniform float time;
         uniform float uPointSize;
         uniform float uScatter;
+        uniform vec2 uMouse;
         varying vec3 vColor;
 
         void main() {
           vec3 pos = position;
           
-          // 1. SPHERE LOGIC (Start State)
+          // 1. SPHERE LOGIC (Wavy movement)
           float noise = sin(pos.x * 4.0 + time) * 0.1;
           vec3 spherePos = pos + normal * noise;
 
-          // 2. GALAXY SPIRAL LOGIC (End State)
-          // We create a spiral based on the angle of the original points
-          float angle = length(pos.xy) * 12.0 + (pos.x * 8.0) + (time * 0.2);
-          float radius = angle * 0.25;
-          vec3 galaxyPos = vec3(cos(angle) * radius, sin(angle) * radius, pos.z * 0.2);
+          // 2. SCATTER LOGIC
+          // Instead of a galaxy shape, we push particles along their normals
+          // uScatter * 15.0 makes them fly off-screen as you scroll
+          vec3 scatteredPos = spherePos + normal * (uScatter * 15.0);
 
-          // 3. THE MORPH: Linear Interpolation
-          vec3 finalPos = mix(spherePos, galaxyPos, uScatter);
+          // 3. FINAL POSITION
+          vec3 finalPos = scatteredPos;
 
-          // Color shifts from Blue to Cyan
-          vColor = mix(vec3(0.4, 0.6, 1.0), vec3(0.2, 0.9, 1.0), uScatter);
+          // 4. MOUSE PARALLAX
+          // We reduce mouse influence as they scatter away
+          float mouseFactor = 1.0 - clamp(uScatter * 1.5, 0.0, 1.0);
+          finalPos.x += uMouse.x * 0.5 * mouseFactor;
+          finalPos.y += uMouse.y * 0.5 * mouseFactor;
+
+          // COLOR: Transitions to #376a97
+          vec3 targetColor = vec3(0.216, 0.416, 0.592); 
+          vColor = mix(vec3(0.4, 0.6, 1.0), targetColor, uScatter);
           
           vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
-          gl_PointSize = uPointSize * (10.0 / -mvPosition.z);
+          
+          // Shrink points slightly as they scatter for a distant star effect
+          float sizeFactor = 1.0 - (uScatter * 0.5);
+          gl_PointSize = uPointSize * sizeFactor * (12.0 / -mvPosition.z);
+          
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -90,18 +103,31 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
     const particles = new THREE.Points(geometry, material);
     scene.add(particles);
 
+    const handleMouseMove = (e: MouseEvent) => {
+      mouseRef.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
+      mouseRef.current.y = (e.clientY / window.innerHeight - 0.5) * -2;
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
     const clock = new THREE.Clock();
     let frameId: number;
     const animate = () => {
-      material.uniforms.time.value = clock.getElapsedTime();
-      // Overall rotation increases slightly as it becomes a galaxy
-      particles.rotation.z += 0.001 + (scatter * 0.005);
+      const elapsed = clock.getElapsedTime();
+      material.uniforms.time.value = elapsed;
+      
+      material.uniforms.uMouse.value.x += (mouseRef.current.x - material.uniforms.uMouse.value.x) * 0.05;
+      material.uniforms.uMouse.value.y += (mouseRef.current.y - material.uniforms.uMouse.value.y) * 0.05;
+
+      // Subtle rotation during scatter
+      particles.rotation.y = elapsed * 0.05;
+
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
     animate();
 
     return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
       cancelAnimationFrame(frameId);
       geometry.dispose();
       material.dispose();
@@ -113,7 +139,7 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
     <div className="relative w-full h-full bg-[#050508] overflow-hidden">
       <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
       <motion.div 
-        style={{ opacity: 1 - scatter * 2 }} // Fades out text early in the scroll
+        style={{ opacity: 1 - scatter * 2 }}
         className="relative z-10 w-full h-full flex items-center justify-center pointer-events-none"
       >
         <AnimatePresence mode="wait">
@@ -122,7 +148,7 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="text-[10vw] font-oxanium text-white text-center drop-shadow-[0_0_30px_rgba(99,102,241,0.3)]"
+            className="text-[10vw] font-oxanium text-white text-center"
           >
             {phrases[index]}
           </motion.h1>
@@ -133,3 +159,5 @@ const NeuralNetworkBackground: React.FC<NeuralNetworkProps> = ({ scatter }) => {
 };
 
 export default NeuralNetworkBackground;
+
+// 2
